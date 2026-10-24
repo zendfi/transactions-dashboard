@@ -106,7 +106,11 @@ export async function getStats(): Promise<Stats> {
       } catch (e) {
         // One broken source shouldn't take the dashboard down.
         console.error(`[stats] ${meta.key} failed:`, e);
-        return { ...meta, count: 0, valueUsd: 0, error: "unavailable" };
+        // Surface only the error code (no message) so no connection details leak.
+        const code =
+          (e as { code?: string })?.code ??
+          (String(e).includes("DATABASE_URL") ? "NO_DATABASE_URL" : "unavailable");
+        return { ...meta, count: 0, valueUsd: 0, error: code };
       }
     }),
   );
