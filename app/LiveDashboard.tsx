@@ -57,7 +57,7 @@ export default function LiveDashboard({ initial }: { initial: Stats | null }) {
     <main>
       <div className="header">
         <div>
-          <h1>ZendFi</h1>
+          <h1><img src="/zend.png" alt="Zend" className="logo" width={44} height={44} /></h1>
           <div className="sub">Mainnet only. Successful transactions across merchant payments and Paj ramps.</div>
         </div>
         <div className="live" role="status" aria-live="polite">
@@ -79,7 +79,7 @@ export default function LiveDashboard({ initial }: { initial: Stats | null }) {
       </section>
 
       <section className="card" aria-label="Breakdown by source">
-        <table>
+        <div className="table-wrap"><table>
           <thead>
             <tr><th>Source</th><th>Product</th><th className="num">Transactions</th><th className="num">Value</th></tr>
           </thead>
@@ -93,7 +93,7 @@ export default function LiveDashboard({ initial }: { initial: Stats | null }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </section>
     </main>
   );
