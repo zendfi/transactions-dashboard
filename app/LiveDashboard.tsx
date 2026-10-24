@@ -57,8 +57,8 @@ export default function LiveDashboard({ initial }: { initial: Stats | null }) {
     <main>
       <div className="header">
         <div>
-          <h1>Zend + ZendFi</h1>
-          <div className="sub">Mainnet only. Successful transactions across payments, transfers, Paj and Bridge.</div>
+          <h1>ZendFi</h1>
+          <div className="sub">Mainnet only. Successful transactions across merchant payments and Paj ramps.</div>
         </div>
         <div className="live" role="status" aria-live="polite">
           <span className="dot" aria-hidden="true" />

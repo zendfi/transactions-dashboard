@@ -20,74 +20,39 @@ export type Stats = {
 // single money movement is counted once (see notes per query).
 type SourceDef = Omit<Source, "count" | "valueUsd" | "error"> & { sql: string };
 
+// Schema notes (ZendFi DB, migrations up to 0130):
+// - payments is the canonical ledger. mode='live' = mainnet. Confirmed rows
+//   include checkout, links, invoices, subscriptions, terminal charges and
+//   PAJ on-ramps that settle into a payment (paj_ramp_orders.payment_id).
+// - PAJ on-ramps NOT linked to a payment are counted separately.
+// - PAJ off-ramps: status 'PAID' is set once USDC is sent on mainnet to PAJ
+//   (paj_offramp.rs, always Live mode). Not represented in payments.
+// - withdrawals / settlements are merchant payouts, not volume: excluded.
 const SOURCES: SourceDef[] = [
   {
-    // Canonical merchant ledger. Includes checkout, payment links, intents,
-    // and PAJ on-ramps that settle into a payment row.
-    key: "zendfi_payments",
+    key: "payments",
     label: "Merchant payments",
     product: "ZendFi",
     sql: `SELECT COUNT(*)::bigint AS c, COALESCE(SUM(amount_usd),0)::float8 AS v
           FROM payments
-          WHERE status = 'confirmed' AND mode = 'live' AND user_id IS NULL`,
+          WHERE status = 'confirmed' AND mode = 'live'`,
   },
   {
-    // Zend user payment links write into payments with user_id set.
-    key: "zend_payment_links",
-    label: "Payment links",
-    product: "Zend",
-    sql: `SELECT COUNT(*)::bigint AS c, COALESCE(SUM(amount_usd),0)::float8 AS v
-          FROM payments
-          WHERE status = 'confirmed' AND mode = 'live' AND user_id IS NOT NULL`,
-  },
-  {
-    // P2P sends, pay-merchant, pool contributions (pool_contributions points
-    // here, so it is intentionally not summed separately).
-    key: "zend_transfers",
-    label: "Transfers",
-    product: "Zend",
-    sql: `SELECT COUNT(*)::bigint AS c, COALESCE(SUM(amount_usdc),0)::float8 AS v
-          FROM zend_transfers
-          WHERE status = 'confirmed' AND network = 'mainnet'`,
-  },
-  {
-    key: "paj_bank_sends",
-    label: "Paj off-ramp (bank sends)",
-    product: "Zend",
-    sql: `SELECT COUNT(*)::bigint AS c, COALESCE(SUM(amount_usdc),0)::float8 AS v
-          FROM user_bank_send_orders
-          WHERE status = 'completed' AND blockchain_network = 'mainnet'`,
-  },
-  {
-    key: "paj_payins",
-    label: "Paj on-ramp (pay-ins)",
-    product: "Zend",
-    sql: `SELECT COUNT(*)::bigint AS c, COALESCE(SUM(amount_usdc),0)::float8 AS v
-          FROM user_payin_orders
-          WHERE status = 'completed' AND settlement_network = 'mainnet'`,
-  },
-  {
-    // Orders linked to a payment / intent are already counted via payments.
-    key: "paj_ramp_orders",
-    label: "Paj ramp orders",
+    key: "paj_onramp",
+    label: "Paj on-ramp (unlinked)",
     product: "ZendFi",
     sql: `SELECT COUNT(*)::bigint AS c, COALESCE(SUM(token_amount),0)::float8 AS v
           FROM paj_ramp_orders
-          WHERE status = 'COMPLETED'
+          WHERE order_type = 'onramp' AND status = 'COMPLETED'
             AND payment_id IS NULL AND payment_intent_id IS NULL`,
   },
   {
-    // Bridge is a real-money rail (no sandbox flag in our schema).
-    // amount is stored as text; ignore anything non-numeric.
-    key: "bridge_transfers",
-    label: "Bridge transfers",
+    key: "paj_offramp",
+    label: "Paj off-ramp",
     product: "ZendFi",
-    sql: `SELECT COUNT(*)::bigint AS c,
-                 COALESCE(SUM(CASE WHEN amount ~ '^[0-9]+(\\.[0-9]+)?$'
-                                   THEN amount::numeric END),0)::float8 AS v
-          FROM bridge_transfers
-          WHERE state = 'payment_processed' AND deleted_at IS NULL
-            AND LOWER(COALESCE(currency,'usd')) IN ('usd','usdc','usdt','usdb')`,
+    sql: `SELECT COUNT(*)::bigint AS c, COALESCE(SUM(token_amount),0)::float8 AS v
+          FROM paj_ramp_orders
+          WHERE order_type = 'offramp' AND status IN ('PAID','COMPLETED')`,
   },
 ];
 
